@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-accent: #6366F1;
+  --color-accent-content: #6366F1;
+  --color-accent-foreground: #FFFFFF;
+}
+
+/* Pequeños ajustes globales */
+:root {
+  color-scheme: light;
+  --nb-brand: #6366F1;
+  --nb-brand-secondary: #4E8EF7;
+  --nb-brand-dark: #4338CA;
+  --nb-bg: #F9FAFB;
+  --nb-surface: #FFFFFF;
+  --nb-text: #1E293B;
+  --nb-text-strong: #0F172A;
+  --nb-text-secondary: #475569;
+  --nb-border: #E5E7EB;
+  --nb-success: #22C55E;
+  --nb-danger: #EF4444;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Evita que imágenes se salgan del contenedor en móvil */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Estilos personalizados para Flatpickr (Calendario) */
+.flatpickr-calendar .flatpickr-day.selected,
+.flatpickr-calendar .flatpickr-day.startRange,
+.flatpickr-calendar .flatpickr-day.endRange,
+.flatpickr-calendar .flatpickr-day.selected.inRange,
+.flatpickr-calendar .flatpickr-day.selected:focus,
+.flatpickr-calendar .flatpickr-day.selected:hover,
+.flatpickr-calendar .flatpickr-day.selected.prevMonthDay,
+.flatpickr-calendar .flatpickr-day.selected.nextMonthDay {
+  background: var(--nb-brand) !important;
+  border-color: var(--nb-brand) !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Forzar color de texto oscuro en el dropdown de meses y años */
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month .numInputWrapper input.numInput.cur-year {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+}
