@@ -2,10 +2,14 @@
     <div class="flex flex-col gap-6">
         <x-auth-header :title="__('Sortu kontua')" :description="__('Sartu zure datuak kontua sortzeko')" />
 
+        <div class="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm leading-relaxed text-white">
+            {{ __('Kontua sortu ondoren, posta elektronikoa egiaztatzeko esteka bidaliko dizugu. Mahaia erreserbatzeko posta egiaztatuta eduki behar da.') }}
+        </div>
+
         <!-- Session Status -->
         <x-auth-session-status class="text-center" :status="session('status')" />
 
-        <form method="POST" action="{{ route('register.store') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('register.store', absolute: false) }}" class="flex flex-col gap-6">
             @csrf
             <!-- Name -->
             <flux:input
@@ -71,7 +75,7 @@
 
         <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-white">
             <span>{{ __('Badaukazu konturik?') }}</span>
-            <a href="{{ route('login') }}" class="font-bold hover:underline" wire:navigate>{{ __('Hasi saioa') }}</a>
+            <a href="{{ route('login', absolute: false) }}" class="font-bold hover:underline" wire:navigate>{{ __('Hasi saioa') }}</a>
         </div>
     </div>
 </x-layouts.auth>

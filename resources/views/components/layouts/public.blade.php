@@ -2,6 +2,45 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="bg-zinc-900">
     <head>
         @include('partials.head')
+        <style>
+            .nb-desktop-header {
+                display: none;
+            }
+
+            .nb-touch-menu {
+                width: min(22rem, 86vw);
+            }
+
+            @media (min-width: 1280px) {
+                .nb-desktop-header {
+                    display: block;
+                }
+
+                .nb-touch-only {
+                    display: none !important;
+                }
+
+                .nb-desktop-reservas-grid {
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                }
+
+                .nb-desktop-span-2 {
+                    grid-column: span 2 / span 2;
+                }
+
+                .nb-desktop-table-grid {
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                }
+
+                .nb-desktop-two-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .nb-desktop-three-grid {
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                }
+            }
+        </style>
     </head>
 
     <body class="min-h-screen bg-[#F9FAFB] text-slate-800 flex flex-col overscroll-none" x-data="{ mobileMenuOpen: false }" :class="{ 'overflow-hidden': mobileMenuOpen }">
@@ -9,7 +48,7 @@
         <!-- Fixed Floating Menu Button -->
         <button 
             type="button" 
-            class="fixed top-4 left-4 z-50 p-3 bg-[#6366F1] text-white rounded-full shadow-lg hover:bg-[#4F46E5] transition-colors md:hidden"
+            class="nb-touch-only fixed top-4 left-4 z-50 p-3 bg-[#6366F1] text-white rounded-full shadow-lg hover:bg-[#4F46E5] transition-colors"
             @click="mobileMenuOpen = !mobileMenuOpen"
             x-show="!mobileMenuOpen"
             x-transition:enter="transition ease-out duration-300"
@@ -31,10 +70,10 @@
         @endphp
 
         <!-- Desktop Header -->
-        <header class="hidden sm:block w-full border-b border-[#E5E7EB] bg-[#6366F1]">
+        <header class="nb-desktop-header w-full border-b border-[#E5E7EB] bg-[#6366F1]">
             <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex w-full items-center gap-3 py-4">
-                    <a href="{{ route('home') }}" class="flex items-baseline gap-2 text-white" wire:navigate>
+                    <a href="{{ route('home', absolute: false) }}" class="flex items-baseline gap-2 text-white" wire:navigate>
                         <span class="text-xl sm:text-2xl font-black tracking-[0.18em]" style="font-family: Arial, Helvetica, sans-serif;">NOVA BITES</span>
                         <span class="hidden sm:inline text-xs opacity-90">Jatetxea &amp; erreserbak</span>
                     </a>
@@ -43,7 +82,7 @@
                         <div class="flex items-center gap-6">
                             @foreach ($nav as $item)
                                 <a 
-                                    href="{{ route($item['route']) }}" 
+                                    href="{{ route($item['route'], absolute: false) }}"
                                     class="flex items-center gap-2 px-3 py-2 text-sm font-bold text-white hover:text-white/80 transition rounded-lg {{ request()->routeIs($item['route']) ? 'bg-white/10' : '' }}"
                                     wire:navigate
                                 >
@@ -70,7 +109,7 @@
 
                             @auth
                                 <a 
-                                    href="{{ route('reservas') }}" 
+                                    href="{{ route('reservas', absolute: false) }}" 
                                     class="flex items-center gap-2 px-3 py-2 text-sm font-bold text-white hover:text-white/80 transition rounded-lg {{ request()->routeIs('reservas') ? 'bg-white/10' : '' }}"
                                     wire:navigate
                                 >
@@ -109,12 +148,13 @@
                                 <flux:menu.separator class="bg-zinc-200" />
 
                                 <flux:menu.radio.group>
-                                    <flux:menu.item :href="route('profile.edit')" icon="cog" class="!text-zinc-900" wire:navigate>Ezarpenak</flux:menu.item>
+                                    <flux:menu.item :href="route('profile.edit', absolute: false)" icon="cog" class="!text-zinc-900" wire:navigate>Ezarpenak</flux:menu.item>
+                                    <flux:menu.item :href="route('reservas.historial', absolute: false)" icon="calendar-days" class="!text-zinc-900" wire:navigate>Nire erreserbak</flux:menu.item>
                                 </flux:menu.radio.group>
 
                                 <flux:menu.separator class="bg-zinc-200" />
 
-                                <form method="POST" action="{{ route('logout') }}" class="w-full">
+                                <form method="POST" action="{{ route('logout', absolute: false) }}" class="w-full">
                                     @csrf
                                     <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-zinc-900 hover:bg-zinc-100 transition-colors" data-test="logout-button">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-zinc-500">
@@ -126,10 +166,10 @@
                             </flux:menu>
                         </flux:dropdown>
                     @else
-                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-white hover:text-gray-100 transition" wire:navigate>
+                        <a href="{{ route('login', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-white hover:text-gray-100 transition" wire:navigate>
                             Saioa hasi
                         </a>
-                        <a href="{{ route('register') }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#6366F1] hover:bg-zinc-100 transition shadow-sm" wire:navigate>
+                        <a href="{{ route('register', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#6366F1] hover:bg-zinc-100 transition shadow-sm" wire:navigate>
                             Erregistratu
                         </a>
                     @endauth
@@ -141,7 +181,7 @@
         <!-- Mobile Menu Overlay -->
         <div 
             x-show="mobileMenuOpen" 
-            class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
+            class="nb-touch-only fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             x-transition:enter="transition-opacity ease-linear duration-300"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
@@ -155,7 +195,7 @@
         <!-- Mobile Menu Sidebar -->
         <div 
             x-show="mobileMenuOpen" 
-            class="fixed inset-y-0 left-0 z-50 w-[85%] sm:w-[20%] min-w-[250px] bg-[#6366F1] shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden"
+            class="nb-touch-only nb-touch-menu fixed inset-y-0 left-0 z-50 min-w-[250px] bg-[#6366F1] shadow-2xl transform transition-transform duration-300 ease-in-out"
             x-transition:enter="transition ease-in-out duration-300 transform"
             x-transition:enter-start="-translate-x-full"
             x-transition:enter-end="translate-x-0"
@@ -165,7 +205,7 @@
             style="display: none;"
         >
             <div class="flex items-center justify-between p-4 border-b border-white/10">
-                <a href="{{ route('home') }}" class="text-base font-black tracking-[0.18em] text-white" wire:navigate @click="mobileMenuOpen = false">
+                <a href="{{ route('home', absolute: false) }}" class="text-base font-black tracking-[0.18em] text-white" wire:navigate @click="mobileMenuOpen = false">
                     NOVA BITES
                 </a>
                 <button type="button" class="text-white hover:bg-white/10 rounded-full p-1 transition" @click="mobileMenuOpen = false">
@@ -180,7 +220,7 @@
                 
                 @foreach ($nav as $item)
                     <a 
-                        href="{{ route($item['route']) }}" 
+                        href="{{ route($item['route'], absolute: false) }}" 
                         class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition {{ request()->routeIs($item['route']) ? 'bg-white/10' : '' }}"
                         wire:navigate
                         @click="mobileMenuOpen = false"
@@ -208,7 +248,7 @@
 
                 @auth
                     <a 
-                        href="{{ route('reservas') }}" 
+                        href="{{ route('reservas', absolute: false) }}" 
                         class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition {{ request()->routeIs('reservas') ? 'bg-white/10' : '' }}"
                         wire:navigate
                         @click="mobileMenuOpen = false"
@@ -236,7 +276,7 @@
                 
                         <div class="h-px bg-white/10 my-1"></div>
                 
-                        <a href="{{ route('profile.edit') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition" wire:navigate>
+                        <a href="{{ route('profile.edit', absolute: false) }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition" wire:navigate>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -246,8 +286,18 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                             </svg>
                         </a>
+
+                        <a href="{{ route('reservas.historial', absolute: false) }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition {{ request()->routeIs('reservas.historial') ? 'bg-white/10' : '' }}" wire:navigate @click="mobileMenuOpen = false">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75Zm3-7.5h12M8.25 15h.008v.008H8.25V15Zm3.75 0h.008v.008H12V15Zm3.75 0h.008v.008h-.008V15Z" />
+                            </svg>
+                            Nire erreserbak
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ml-auto size-4 opacity-50">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </a>
                 
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout', absolute: false) }}">
                             @csrf
                             <button type="submit" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition text-start">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
@@ -259,10 +309,10 @@
                     </div>
                 @else
                     <div class="grid gap-3">
-                        <a href="{{ route('login') }}" class="w-full inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#6366F1] transition shadow-sm" wire:navigate>
+                        <a href="{{ route('login', absolute: false) }}" class="w-full inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#6366F1] transition shadow-sm" wire:navigate>
                             Saioa hasi
                         </a>
-                        <a href="{{ route('register') }}" class="w-full inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition" wire:navigate>
+                        <a href="{{ route('register', absolute: false) }}" class="w-full inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition" wire:navigate>
                             Erregistratu
                         </a>
                     </div>
@@ -288,33 +338,178 @@
             </div>
         </footer>
 
+        <style>
+            #toast-container > .toast-success { background-color: #2EAD6B; }
+            #toast-container > .toast-error { background-color: #D94B5A; }
+            #toast-container > .toast-info { background-color: #6366F1; }
+            #toast-container > .toast-warning { background-color: #D97706; }
+
+            @media (max-width: 1279px) {
+                #toast-container.toast-top-right {
+                    left: 1rem;
+                    right: 1rem;
+                    top: 1rem;
+                    width: auto;
+                }
+
+                #toast-container.toast-top-right > div {
+                    box-sizing: border-box;
+                    margin-left: 0;
+                    margin-right: 0;
+                    width: 100%;
+                }
+            }
+
+            .nova-toast-fallback {
+                align-items: stretch;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                max-width: 22rem;
+                position: fixed;
+                right: 1rem;
+                top: 1rem;
+                width: calc(100vw - 2rem);
+                z-index: 99999;
+            }
+
+            .nova-toast-fallback__item {
+                border-radius: 0.75rem;
+                box-shadow: 0 20px 35px rgb(15 23 42 / 0.22);
+                color: #fff;
+                font-size: 0.95rem;
+                font-weight: 700;
+                line-height: 1.35;
+                padding: 0.9rem 1rem;
+                transition: opacity 0.35s ease, transform 0.35s ease;
+            }
+
+            .nova-toast-fallback__item--success { background: #2EAD6B; }
+            .nova-toast-fallback__item--error { background: #D94B5A; }
+            .nova-toast-fallback__item--warning { background: #D97706; }
+            .nova-toast-fallback__item--info { background: #6366F1; }
+
+            @media (max-width: 1279px) {
+                .nova-toast-fallback {
+                    left: 1rem;
+                    max-width: none;
+                    right: 1rem;
+                    top: 1rem;
+                    width: auto;
+                }
+            }
+        </style>
+
         <!-- Toastr JS -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
         <script>
-            toastr.options = {
-                "closeButton": true,
-                "progressBar": true,
-                "positionClass": "toast-top-right",
-                "timeOut": "3000"
-            };
+            (function () {
+                function normalType(type) {
+                    return ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+                }
 
-            @if(Session::has('success'))
-                toastr.success("{{ Session::get('success') }}");
-            @endif
+                function fallbackToast(type, message) {
+                    var stack = document.querySelector('[data-nova-toast-fallback]');
 
-            @if(Session::has('error'))
-                toastr.error("{{ Session::get('error') }}");
-            @endif
+                    if (! stack) {
+                        stack = document.createElement('div');
+                        stack.className = 'nova-toast-fallback';
+                        stack.setAttribute('data-nova-toast-fallback', '');
+                        document.body.appendChild(stack);
+                    }
 
-            @if(Session::has('warning'))
-                toastr.warning("{{ Session::get('warning') }}");
-            @endif
+                    var item = document.createElement('div');
+                    item.className = 'nova-toast-fallback__item nova-toast-fallback__item--' + type;
+                    item.setAttribute('role', type === 'error' ? 'alert' : 'status');
+                    item.textContent = message;
+                    stack.appendChild(item);
 
-            @if(Session::has('info'))
-                toastr.info("{{ Session::get('info') }}");
-            @endif
+                    window.setTimeout(function () {
+                        item.style.opacity = '0';
+                        item.style.transform = 'translateY(-0.5rem)';
+                    }, 2600);
+
+                    window.setTimeout(function () {
+                        item.remove();
+
+                        if (! stack.children.length) {
+                            stack.remove();
+                        }
+                    }, 3100);
+                }
+
+                function showToast(type, message) {
+                    type = normalType(type);
+
+                    if (! message) {
+                        return;
+                    }
+
+                    var now = Date.now();
+                    var toastKey = type + ':' + message;
+                    var state = window.NovaBitesToast || { lastKey: '', lastAt: 0 };
+
+                    if (toastKey === state.lastKey && now - state.lastAt < 2500) {
+                        return;
+                    }
+
+                    state.lastKey = toastKey;
+                    state.lastAt = now;
+
+                    if (window.toastr && typeof window.toastr[type] === 'function') {
+                        window.toastr.options = {
+                            closeButton: true,
+                            progressBar: true,
+                            positionClass: 'toast-top-right',
+                            timeOut: '3000',
+                            newestOnTop: true
+                        };
+                        window.toastr[type](message);
+                        return;
+                    }
+
+                    fallbackToast(type, message);
+                }
+
+                if (! window.NovaBitesToast) {
+                    window.NovaBitesToast = {
+                        lastKey: '',
+                        lastAt: 0,
+                        listenersAttached: false,
+                        show: showToast,
+                        handleEvent: function (event) {
+                            var detail = event.detail || {};
+                            window.NovaBitesToast.show(detail.type || 'info', detail.message || '');
+                        }
+                    };
+                } else {
+                    window.NovaBitesToast.show = showToast;
+                }
+
+                if (! window.NovaBitesToast.listenersAttached) {
+                    window.addEventListener('nova-toast', window.NovaBitesToast.handleEvent);
+                    window.addEventListener('toaster:received', window.NovaBitesToast.handleEvent);
+                    window.NovaBitesToast.listenersAttached = true;
+                }
+
+                @if(Session::has('success'))
+                    window.NovaBitesToast.show('success', @json(Session::get('success')));
+                @endif
+
+                @if(Session::has('error'))
+                    window.NovaBitesToast.show('error', @json(Session::get('error')));
+                @endif
+
+                @if(Session::has('warning'))
+                    window.NovaBitesToast.show('warning', @json(Session::get('warning')));
+                @endif
+
+                @if(Session::has('info'))
+                    window.NovaBitesToast.show('info', @json(Session::get('info')));
+                @endif
+            })();
         </script>
 
         @fluxScripts

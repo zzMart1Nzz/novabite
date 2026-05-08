@@ -16,15 +16,15 @@
                     </p>
 
                     <div class="mt-8 flex flex-wrap gap-4">
-                        <a href="{{ route('menu') }}" class="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-lg font-bold text-[#6366F1] shadow-lg hover:bg-zinc-100 transition transform hover:-translate-y-1" wire:navigate>
+                        <a href="{{ route('menu', absolute: false) }}" class="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-lg font-bold text-[#6366F1] shadow-lg hover:bg-zinc-100 transition transform hover:-translate-y-1" wire:navigate>
                             Menua ikusi
                         </a>
                         @auth
-                            <a href="{{ route('reservas') }}" class="inline-flex items-center justify-center rounded-full bg-[#4E8EF7] px-8 py-4 text-lg font-bold text-white shadow-lg hover:opacity-95 transition transform hover:-translate-y-1" wire:navigate>
+                            <a href="{{ route('reservas', absolute: false) }}" class="inline-flex items-center justify-center rounded-full bg-[#4E8EF7] px-8 py-4 text-lg font-bold text-white shadow-lg hover:opacity-95 transition transform hover:-translate-y-1" wire:navigate>
                                 Mahaia erreserbatu
                             </a>
                         @else
-                            <a href="{{ route('login') }}" class="inline-flex items-center justify-center rounded-full bg-[#4E8EF7] px-8 py-4 text-lg font-bold text-white shadow-lg hover:opacity-95 transition transform hover:-translate-y-1" wire:navigate>
+                            <a href="{{ route('login', absolute: false) }}" class="inline-flex items-center justify-center rounded-full bg-[#4E8EF7] px-8 py-4 text-lg font-bold text-white shadow-lg hover:opacity-95 transition transform hover:-translate-y-1" wire:navigate>
                                 Saioa hasi erreserbatzeko
                             </a>
                         @endauth
@@ -49,14 +49,14 @@
         </section>
 
         <section class="mx-auto max-w-6xl px-4 py-14">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div class="grid grid-cols-1 nb-desktop-two-grid gap-10 items-start">
                 <div>
                     <h2 class="text-2xl sm:text-3xl font-bold">Gure filosofia</h2>
                     <p class="mt-3 text-zinc-600">
                         Garrantzitsuena xehetasunetan dago: produktu ona, errezeta argiak eta giro atsegina.
                         Karta labur baina ondo pentsatua, eguneko une bakoitzerako aukerekin.
                     </p>
-                    <a href="{{ route('filosofia') }}" class="mt-5 inline-flex items-center font-semibold text-[#6366F1] hover:underline" wire:navigate>
+                    <a href="{{ route('filosofia', absolute: false) }}" class="mt-5 inline-flex items-center font-semibold text-[#6366F1] hover:underline" wire:navigate>
                         Gehiago jakin
                     </a>
                 </div>
@@ -64,19 +64,19 @@
                 <div class="rounded-2xl border border-zinc-200 p-6">
                     <h3 class="text-lg font-semibold">Etortzeko prest?</h3>
                     <p class="mt-2 text-zinc-600">
-                        5 mahai eta bi txanda ditugu: bazkaria eta afaria. Mahai bat okupatuta badago gorriz agertzen da; libre badago, urdinez.
+                        6 mahai eta bi txanda ditugu: bazkaria eta afaria. Erreserba bakoitza 2 ordukoa da. Mahai libreak berdez agertzen dira; zure erreserbak urdinez, eta beste erabiltzaileenak gorriz.
                     </p>
                     <div class="mt-5 flex flex-wrap gap-3">
                         @auth
-                            <a href="{{ route('reservas') }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-5 py-3 font-semibold text-white hover:bg-[#4F46E5]" wire:navigate>
+                            <a href="{{ route('reservas', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-5 py-3 font-semibold text-white hover:bg-[#4F46E5]" wire:navigate>
                                 Erreserbatu orain
                             </a>
                         @else
-                            <a href="{{ route('register') }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-5 py-3 font-semibold text-white hover:bg-[#4F46E5]" wire:navigate>
+                            <a href="{{ route('register', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-5 py-3 font-semibold text-white hover:bg-[#4F46E5]" wire:navigate>
                                 Kontua sortu
                             </a>
                         @endauth
-                        <a href="{{ route('restaurantes') }}" class="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-5 py-3 font-semibold hover:bg-zinc-50" wire:navigate>
+                        <a href="{{ route('restaurantes', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-5 py-3 font-semibold hover:bg-zinc-50" wire:navigate>
                             Jatetxeak ikusi
                         </a>
                     </div>

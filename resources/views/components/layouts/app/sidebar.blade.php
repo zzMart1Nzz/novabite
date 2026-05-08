@@ -4,7 +4,7 @@
             [
                 'name' => 'Arbela',
                 'icon' => 'home',
-                'url' => route('dashboard'),
+                'url' => route('dashboard', absolute: false),
                 'current' => request()->routeIs('dashboard'),
             ],
         ],
@@ -27,11 +27,11 @@
             ];
         @endphp
 
-        <flux:header container class="border-b border-[#E5E7EB] bg-[#6366F1] {{ (request()->routeIs('profile.edit') || request()->routeIs('user-password.edit') || request()->routeIs('two-factor.show')) ? 'hidden lg:block' : '' }}">
+        <flux:header container class="border-b border-[#E5E7EB] bg-[#6366F1] {{ (request()->routeIs('profile.edit') || request()->routeIs('user-password.edit') || request()->routeIs('two-factor.show')) ? 'hidden xl:block' : '' }}">
             <div class="flex w-full items-center gap-3 py-4">
                 <flux:sidebar.toggle class="lg:hidden text-white" icon="bars-2" inset="left" />
 
-                <a href="{{ route('home') }}" class="flex items-baseline gap-2 text-white" wire:navigate>
+                <a href="{{ route('home', absolute: false) }}" class="flex items-baseline gap-2 text-white" wire:navigate>
                     <span class="text-xl sm:text-2xl font-black tracking-[0.18em]" style="font-family: Arial, Helvetica, sans-serif;">NOVA BITES</span>
                     <span class="hidden sm:inline text-xs opacity-90">Jatetxea &amp; erreserbak</span>
                 </a>
@@ -61,12 +61,13 @@
                             <flux:menu.separator class="bg-zinc-200" />
 
                             <flux:menu.radio.group>
-                                <flux:menu.item :href="route('profile.edit')" icon="cog" class="!text-zinc-900" wire:navigate>Ezarpenak</flux:menu.item>
+                                <flux:menu.item :href="route('profile.edit', absolute: false)" icon="cog" class="!text-zinc-900" wire:navigate>Ezarpenak</flux:menu.item>
+                                <flux:menu.item :href="route('reservas.historial', absolute: false)" icon="calendar-days" class="!text-zinc-900" wire:navigate>Nire erreserbak</flux:menu.item>
                             </flux:menu.radio.group>
 
                             <flux:menu.separator class="bg-zinc-200" />
 
-                            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                            <form method="POST" action="{{ route('logout', absolute: false) }}" class="w-full">
                                 @csrf
                                 <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-zinc-900 hover:bg-zinc-100 transition-colors" data-test="logout-button">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-zinc-500">

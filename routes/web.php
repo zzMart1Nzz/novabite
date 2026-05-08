@@ -34,7 +34,8 @@ Route::view('dashboard', 'dashboard')
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
-    Volt::route('/reservas', 'reservas')->name('reservas');
+    Volt::route('/reservas', 'reservas')->middleware('verified')->name('reservas');
+    Volt::route('/mis-reservas', 'reservas-historial')->name('reservas.historial');
 
     Route::get('settings', function () {
         return redirect()->route('profile.edit');

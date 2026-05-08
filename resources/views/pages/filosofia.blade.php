@@ -7,7 +7,7 @@
             </p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 nb-desktop-three-grid gap-8">
             <div class="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm hover:shadow-lg transition duration-300">
                 <div class="w-12 h-12 bg-[#6366F1]/10 rounded-xl flex items-center justify-center mb-6">
                     <svg class="w-6 h-6 text-[#6366F1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
@@ -38,11 +38,11 @@
         </div>
 
         <div class="mt-16 flex flex-wrap justify-center gap-4">
-            <a href="{{ route('menu') }}" class="inline-flex items-center justify-center rounded-xl bg-white border border-zinc-200 px-8 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 transition shadow-sm" wire:navigate>
+            <a href="{{ route('menu', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-white border border-zinc-200 px-8 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 transition shadow-sm" wire:navigate>
                 Menua ikusi
             </a>
             @auth
-                <a href="{{ route('reservas') }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-8 py-3 font-semibold text-white hover:bg-[#4F46E5] transition shadow-lg hover:-translate-y-0.5" wire:navigate>
+                <a href="{{ route('reservas', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-8 py-3 font-semibold text-white hover:bg-[#4F46E5] transition shadow-lg hover:-translate-y-0.5" wire:navigate>
                     Mahaia erreserbatu
                 </a>
             @endauth

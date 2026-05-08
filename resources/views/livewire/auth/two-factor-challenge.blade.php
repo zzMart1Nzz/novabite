@@ -37,7 +37,7 @@
                 />
             </div>
 
-            <form method="POST" action="{{ route('two-factor.login.store') }}">
+            <form method="POST" action="{{ route('two-factor.login.store', absolute: false) }}">
                 @csrf
 
                 <div class="space-y-5 text-center">

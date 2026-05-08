@@ -30,6 +30,16 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureViews();
         $this->configureRateLimiting();
 
+        $this->app->singleton(\Laravel\Fortify\Contracts\LoginResponse::class, function () {
+            return new class implements \Laravel\Fortify\Contracts\LoginResponse
+            {
+                public function toResponse($request)
+                {
+                    return redirect()->intended('/');
+                }
+            };
+        });
+
         $this->app->singleton(\Laravel\Fortify\Contracts\LogoutResponse::class, function () {
             return new class implements \Laravel\Fortify\Contracts\LogoutResponse
             {
@@ -45,13 +55,9 @@ class FortifyServiceProvider extends ServiceProvider
             {
                 public function toResponse($request)
                 {
-                    session()->flash('swal', [
-                        'icon' => 'success',
-                        'title' => 'Erregistroa ondo egin da!',
-                        'text' => 'Ongi etorri! Laster mezu bat jasoko duzu zure posta elektronikoan xehetasun guztiekin.',
-                    ]);
+                    session()->flash('status', 'verification-link-sent');
 
-                    return redirect()->route('home');
+                    return redirect()->route('verification.notice');
                 }
             };
         });

@@ -8,6 +8,7 @@ use Laravel\Fortify\Fortify;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
+use Masmerise\Toaster\Toaster;
 use Symfony\Component\HttpFoundation\Response;
 
 new class extends Component {

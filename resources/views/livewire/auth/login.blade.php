@@ -5,7 +5,7 @@
         <!-- Session Status -->
         <x-auth-session-status class="text-center" :status="session('status')" />
 
-        <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('login.store', absolute: false) }}" class="flex flex-col gap-6">
             @csrf
 
             <!-- Email Address -->
@@ -33,7 +33,7 @@
                 />
 
                 @if (Route::has('password.request'))
-                    <flux:link class="absolute top-0 text-sm end-0" :href="route('password.request')" wire:navigate>
+                    <flux:link class="absolute top-0 text-sm end-0" :href="route('password.request', absolute: false)" wire:navigate>
                         {{ __('Pasahitza ahaztu duzu?') }}
                     </flux:link>
                 @endif
@@ -52,7 +52,7 @@
         @if (Route::has('register'))
             <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-white">
                 <span>{{ __('Ez daukazu konturik?') }}</span>
-                <a href="{{ route('register') }}" class="font-bold hover:underline" wire:navigate>{{ __('Erregistratu') }}</a>
+                <a href="{{ route('register', absolute: false) }}" class="font-bold hover:underline" wire:navigate>{{ __('Erregistratu') }}</a>
             </div>
         @endif
     </div>

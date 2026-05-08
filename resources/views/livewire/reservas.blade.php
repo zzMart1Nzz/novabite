@@ -3,6 +3,7 @@
 use App\Mail\ReservationConfirmedEmail;
 use App\Models\Erreserba;
 use App\Models\Mahai;
+use App\Actions\CancelReservation;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -15,9 +16,17 @@ use Livewire\Volt\Component;
 new 
 #[Layout('components.layouts.public')]
 class extends Component {
+    private const MIN_PERTSONA_KOPURUA = 1;
+    private const MAX_PERTSONA_KOPURUA = 8;
+    private const RESERVATION_DURATION_HOURS = 2;
+    private const SERVICE_WINDOWS = [
+        ['label' => 'Bazkaria', 'first_start' => '12:30', 'last_start' => '14:30'],
+        ['label' => 'Afaria', 'first_start' => '19:30', 'last_start' => '21:30'],
+    ];
+
     public string $data = '';
     public string $ordua = '';
-    public int $pertsonaKopurua = 2;
+    public $pertsonaKopurua = 2;
     public string $bezeroIzena = '';
     public string $telefonoa = '';
     public bool $featureEnabled = false;
@@ -27,6 +36,9 @@ class extends Component {
 
     public bool $cancelOpen = false;
     public ?int $selectedReservaId = null;
+
+    public string $noticeType = '';
+    public string $noticeMessage = '';
 
     public function mount(): void
     {
@@ -39,7 +51,14 @@ class extends Component {
             $this->telefonoa = (string) ($user->telefonoa ?? '');
         }
 
-        $this->syncOrdua();
+        $this->syncOrdua(false);
+    }
+
+    protected function notify(string $type, string $message): void
+    {
+        $this->noticeType = $type;
+        $this->noticeMessage = $message;
+        $this->dispatch('nova-toast', type: $type, message: $message);
     }
 
     public function checkTimeRestriction()
@@ -48,21 +67,58 @@ class extends Component {
             return;
         }
 
-        $this->syncOrdua();
+        if ($this->ordua === '') {
+            $this->syncOrdua(false);
+            return;
+        }
+
+        if (! $this->selectedOrduaIsAvailable()) {
+            $this->clearSelectedMahai();
+            $this->syncOrdua(false);
+            $this->notify('info', 'Aukeratutako ordua jada ez dago erabilgarri; ordutegia eguneratu da.');
+        }
     }
 
     public function updated(string $property): void
     {
         if ($property === 'data') {
-            $this->syncOrdua();
+            $this->clearSelectedMahai();
+            $this->syncOrdua(false);
         }
 
-        if ($property === 'pertsonaKopurua' && $this->pertsonaKopurua < 1) {
-            $this->pertsonaKopurua = 1;
+        if ($property === 'ordua') {
+            $this->clearSelectedMahai();
+        }
+
+        if ($property === 'pertsonaKopurua') {
+            $this->sanitizePertsonaKopurua();
+            $this->clearSelectedMahai();
         }
     }
 
-    protected function syncOrdua(): void
+    protected function clearSelectedMahai(): void
+    {
+        $this->confirmOpen = false;
+        $this->selectedMahaiId = null;
+    }
+
+    protected function sanitizePertsonaKopurua(): int
+    {
+        $raw = $this->pertsonaKopurua;
+
+        if ($raw === null || trim((string) $raw) === '' || ! is_numeric($raw)) {
+            $this->pertsonaKopurua = self::MIN_PERTSONA_KOPURUA;
+            return self::MIN_PERTSONA_KOPURUA;
+        }
+
+        $value = (int) $raw;
+        $value = max(self::MIN_PERTSONA_KOPURUA, min(self::MAX_PERTSONA_KOPURUA, $value));
+        $this->pertsonaKopurua = $value;
+
+        return $value;
+    }
+
+    protected function syncOrdua(bool $preferCurrent = true): void
     {
         $auk = $this->orduaAukerak;
         if (! $auk) {
@@ -70,9 +126,51 @@ class extends Component {
             return;
         }
 
-        if ($this->ordua === '' || ! in_array($this->ordua, $auk, true)) {
+        if (! $preferCurrent || $this->ordua === '' || ! in_array($this->ordua, $auk, true)) {
             $this->ordua = (string) $auk[0];
         }
+    }
+
+    protected function selectedOrduaIsAvailable(): bool
+    {
+        return $this->ordua !== '' && in_array($this->ordua, $this->orduaAukerak, true);
+    }
+
+    protected function serviceWindowsForDay(\Carbon\Carbon $day): array
+    {
+        return array_map(function (array $window) use ($day) {
+            $firstStart = \Carbon\Carbon::parse($day->toDateString().' '.$window['first_start'].':00');
+            $lastStart = \Carbon\Carbon::parse($day->toDateString().' '.$window['last_start'].':00');
+
+            return [
+                'label' => $window['label'],
+                'first_start' => $firstStart,
+                'last_start' => $lastStart,
+                'service_end' => $lastStart->copy()->addHours(self::RESERVATION_DURATION_HOURS),
+            ];
+        }, self::SERVICE_WINDOWS);
+    }
+
+    protected function txandaFor(\Carbon\Carbon $startsAt): ?array
+    {
+        foreach ($this->serviceWindowsForDay($startsAt->copy()->startOfDay()) as $window) {
+            $cursor = $window['first_start']->copy();
+
+            while ($cursor->lte($window['last_start'])) {
+                if ($startsAt->format('Y-m-d H:i:s') === $cursor->format('Y-m-d H:i:s')) {
+                    return $window;
+                }
+
+                $cursor->addMinutes(30);
+            }
+        }
+
+        return null;
+    }
+
+    protected function isAllowedReservationStart(\Carbon\Carbon $startsAt): bool
+    {
+        return $this->txandaFor($startsAt) !== null;
     }
 
     public function getOrduaAukerakProperty(): array
@@ -84,10 +182,7 @@ class extends Component {
         $date = $this->data ?: now()->toDateString();
         $day = \Carbon\Carbon::parse($date)->startOfDay();
         $isToday = $day->isToday();
-        $windows = [
-            [$day->copy()->setTime(12, 30), $day->copy()->setTime(14, 30)],
-            [$day->copy()->setTime(19, 30), $day->copy()->setTime(21, 30)],
-        ];
+        $windows = $this->serviceWindowsForDay($day);
 
         $rounded = null;
         if ($isToday) {
@@ -99,19 +194,20 @@ class extends Component {
         }
 
         $times = [];
-        foreach ($windows as [$start, $end]) {
-            $min = $start->copy();
+        foreach ($windows as $window) {
+            $min = $window['first_start']->copy();
+            $lastStart = $window['last_start']->copy();
             if ($rounded && $rounded->gt($min)) {
                 $min = $rounded->copy();
             }
 
-            if ($min->gt($end)) {
+            if ($min->gt($lastStart)) {
                 continue;
             }
 
             $cursor = $min->copy();
             $cursor->second = 0;
-            while ($cursor->lte($end)) {
+            while ($cursor->lte($lastStart)) {
                 $times[] = $cursor->format('H:i');
                 $cursor->addMinutes(30);
             }
@@ -134,6 +230,48 @@ class extends Component {
         }
     }
 
+    public function reservationEndsAt(\Carbon\Carbon $startsAt): \Carbon\Carbon
+    {
+        return $startsAt->copy()->addHours(self::RESERVATION_DURATION_HOURS);
+    }
+
+    public function getAmaieraOrduaProperty(): string
+    {
+        $startsAt = $this->getEgunaOrdua();
+
+        return $startsAt ? $this->reservationEndsAt($startsAt)->format('H:i') : '';
+    }
+
+    public function getTxandaProperty(): string
+    {
+        $startsAt = $this->getEgunaOrdua();
+
+        return $startsAt ? (string) ($this->txandaFor($startsAt)['label'] ?? '') : '';
+    }
+
+    protected function reservationConflictBounds(\Carbon\Carbon $startsAt): array
+    {
+        return [
+            $startsAt->copy()->subHours(self::RESERVATION_DURATION_HOURS),
+            $this->reservationEndsAt($startsAt),
+        ];
+    }
+
+    protected function conflictingReservationsQuery(?int $mahaiId, \Carbon\Carbon $startsAt)
+    {
+        [$from, $to] = $this->reservationConflictBounds($startsAt);
+
+        $query = Erreserba::query()
+            ->where('eguna_ordua', '>', $from)
+            ->where('eguna_ordua', '<', $to);
+
+        if ($mahaiId !== null) {
+            $query->where('mahaiak_id', $mahaiId);
+        }
+
+        return $query;
+    }
+
     public function getSelectedMahaiProperty(): ?Mahai
     {
         if (! $this->featureEnabled) {
@@ -151,24 +289,38 @@ class extends Component {
         }
 
         return Mahai::query()
-            ->whereRaw('LOWER(COALESCE(kokapena, "")) != ?', ['barra'])
+            ->whereRaw('LOWER(COALESCE(kokapena, "")) NOT IN (?, ?)', ['barra', 'ekitaldi'])
+            ->where(function ($query) {
+                $query->whereNull('zenbakia')->orWhere('zenbakia', '!=', 8);
+            })
             ->orderBy('id')
             ->get();
     }
 
+    protected function reservableOnline(Mahai $mahai): bool
+    {
+        $kokapena = mb_strtolower((string) ($mahai->kokapena ?? ''));
+        $zenbakia = (int) ($mahai->zenbakia ?? 0);
+
+        return ! in_array($kokapena, ['barra', 'ekitaldi'], true) && $zenbakia !== 8;
+    }
+
     protected function terrazaIrekita(\Carbon\Carbon $when): bool
     {
-        $whenHour = $when->copy()->minute(0)->second(0);
-        $cacheKey = 'meteo:ordizia:'.$whenHour->format('YmdH');
+        $reservationStart = $when->copy()->minute(0)->second(0);
+        $reservationEnd = $when->copy()->addHours(2)->minute(0)->second(0);
+        $daysAhead = (int) now('Europe/Madrid')->startOfDay()->diffInDays($when->copy()->startOfDay(), false);
+        $forecastDays = max(1, min(16, $daysAhead + 1));
+        $cacheKey = 'meteo:ordizia:forecast:'.$when->format('Ymd').':'.$forecastDays.':v2';
 
-        $data = Cache::remember($cacheKey, 600, function () {
+        $data = Cache::remember($cacheKey, 600, function () use ($forecastDays) {
             $url = 'https://api.open-meteo.com/v1/forecast';
             $query = [
                 'latitude' => 43.05,
                 'longitude' => -2.18,
-                'hourly' => 'precipitation,precipitation_probability',
+                'hourly' => 'precipitation,precipitation_probability,weather_code',
                 'timezone' => 'Europe/Madrid',
-                'forecast_days' => 3,
+                'forecast_days' => $forecastDays,
             ];
 
             $res = Http::timeout(5)->retry(1, 200)->get($url, $query);
@@ -186,17 +338,28 @@ class extends Component {
         $times = (array) data_get($data, 'hourly.time', []);
         $prec = (array) data_get($data, 'hourly.precipitation', []);
         $prob = (array) data_get($data, 'hourly.precipitation_probability', []);
+        $codes = (array) data_get($data, 'hourly.weather_code', []);
+        $rainCodes = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
 
-        $target = $whenHour->format('Y-m-d\TH:i');
-        $idx = array_search($target, $times, true);
-        if ($idx === false) {
-            return true;
+        $cursor = $reservationStart->copy();
+        while ($cursor->lte($reservationEnd)) {
+            $idx = array_search($cursor->format('Y-m-d\TH:i'), $times, true);
+            $cursor->addHour();
+
+            if ($idx === false) {
+                continue;
+            }
+
+            $precMm = (float) ($prec[$idx] ?? 0);
+            $probPct = (int) ($prob[$idx] ?? 0);
+            $weatherCode = (int) ($codes[$idx] ?? 0);
+
+            if ($precMm > 0.1 || $probPct >= 50 || in_array($weatherCode, $rainCodes, true)) {
+                return false;
+            }
         }
 
-        $precMm = (float) ($prec[$idx] ?? 0);
-        $probPct = (int) ($prob[$idx] ?? 0);
-
-        return $precMm <= 0.1 && $probPct < 50;
+        return true;
     }
 
     public function getTerrazaDisponibleProperty(): bool
@@ -220,14 +383,10 @@ class extends Component {
             return [];
         }
 
-        $from = $egunaOrdua->copy()->subHours(2);
-        $to = $egunaOrdua->copy()->addHours(2);
         $myPhone = $this->telefonoa !== '' ? $this->telefonoa : (string) (auth()->user()->telefonoa ?? '');
 
-        $rows = Erreserba::query()
+        $rows = $this->conflictingReservationsQuery(null, $egunaOrdua)
             ->select(['mahaiak_id', 'telefonoa'])
-            ->where('eguna_ordua', '>', $from)
-            ->where('eguna_ordua', '<', $to)
             ->get();
 
         $out = [];
@@ -263,56 +422,74 @@ class extends Component {
         return Erreserba::query()
             ->with('mahai')
             ->where('telefonoa', $telefonoa)
-            ->orderByDesc('eguna_ordua')
-            ->orderByDesc('id')
-            ->limit(20)
-            ->get();
+            ->where('eguna_ordua', '>', now()->subHours(self::RESERVATION_DURATION_HOURS))
+            ->orderBy('eguna_ordua')
+            ->orderBy('id')
+            ->limit(6)
+            ->get()
+            ->filter(fn ($r) => $this->reservationEndsAt($r->eguna_ordua)->gt(now()))
+            ->values();
     }
 
     public function seleccionarMahaia(int $mahaiId): void
     {
         if (! $this->featureEnabled) {
-            session()->flash('error', 'Erreserbak ez daude erabilgarri une honetan.');
+            $this->notify('error', 'Erreserbak ez daude erabilgarri une honetan.');
             return;
         }
 
         if (! auth()->check()) {
-            $this->redirect(route('login', absolute: false));
+            $this->redirect('/login', navigate: true);
             return;
         }
 
         $user = auth()->user();
         if (! $user || (string) ($user->telefonoa ?? '') === '') {
-            session()->flash('error', 'Ezin da erreserbatu: ez duzu telefonoa ezarrita.');
+            $this->notify('error', 'Ezin da erreserbatu: ez duzu telefonoa ezarrita.');
             return;
         }
 
-        $this->syncOrdua();
+        if (! $this->selectedOrduaIsAvailable()) {
+            $this->notify('error', 'Aukeratutako ordua ez dago erabilgarri. Aukeratu berriro.');
+            return;
+        }
+
         $egunaOrdua = $this->getEgunaOrdua();
         if (! $egunaOrdua) {
-            session()->flash('error', 'Aukeratu ordua.');
+            $this->notify('error', 'Aukeratu ordua.');
             return;
         }
 
-        if ($this->pertsonaKopurua < 1) {
-            session()->flash('error', 'Pertsona kopurua ezin da 1 baino txikiagoa izan.');
+        if (! $this->isAllowedReservationStart($egunaOrdua)) {
+            $this->notify('error', 'Aukeratutako ordua ez dago bazkari edo afari txanden barruan.');
+            return;
+        }
+
+        $pertsonaKopurua = $this->sanitizePertsonaKopurua();
+        if ($pertsonaKopurua < self::MIN_PERTSONA_KOPURUA || $pertsonaKopurua > self::MAX_PERTSONA_KOPURUA) {
+            $this->notify('error', 'Pertsona kopurua ezin da 1 baino txikiagoa izan.');
             return;
         }
 
         $mahai = Mahai::query()->find($mahaiId);
         if (! $mahai) {
-            session()->flash('error', 'Ez da mahaia aurkitu.');
+            $this->notify('error', 'Ez da mahaia aurkitu.');
             return;
         }
 
-        if (mb_strtolower((string) ($mahai->kokapena ?? '')) === 'terraza' && ! $this->terrazaDisponible) {
-            session()->flash('error', 'Terraza itxita dago eguraldiagatik.');
+        if (! $this->reservableOnline($mahai)) {
+            $this->notify('error', 'Mahaia ez dago web bidez erreserbatzeko erabilgarri.');
+            return;
+        }
+
+        if (mb_strtolower((string) ($mahai->kokapena ?? '')) === 'terraza' && ! $this->terrazaIrekita($egunaOrdua)) {
+            $this->notify('error', 'Terraza itxita dago eguraldiagatik.');
             return;
         }
 
         $cap = (int) ($mahai->pertsona_kopurua ?? 0);
-        if ($cap > 0 && $cap < $this->pertsonaKopurua) {
-            session()->flash('error', 'Mahaia txikiegia da aukeratutako pertsona kopururako.');
+        if ($cap > 0 && $cap < $pertsonaKopurua) {
+            $this->notify('error', 'Mahaia txikiegia da aukeratutako pertsona kopururako.');
             return;
         }
 
@@ -326,13 +503,13 @@ class extends Component {
         $this->selectedMahaiId = null;
     }
 
-    public function confirmarReserva(): void
+    public function confirmarReserva()
     {
         if (! $this->selectedMahaiId) return;
 
         $id = $this->selectedMahaiId;
         $this->cerrarConfirm();
-        $this->reservar($id);
+        return $this->reservar($id);
     }
 
     public function seleccionarCancelacion(int $reservaId): void
@@ -350,8 +527,8 @@ class extends Component {
     public function cancelarSeleccionada()
     {
         if (! $this->featureEnabled) {
-            session()->flash('error', 'Erreserbak ez daude erabilgarri une honetan.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Erreserbak ez daude erabilgarri une honetan.');
+            return;
         }
 
         $user = Auth::user();
@@ -362,8 +539,8 @@ class extends Component {
 
         $telefonoa = $this->telefonoa !== '' ? $this->telefonoa : (string) ($user->telefonoa ?? '');
         if ($telefonoa === '') {
-            session()->flash('error', 'Ezin da ezeztatu: ez duzu telefonoa ezarrita.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Ezin da ezeztatu: ez duzu telefonoa ezarrita.');
+            return;
         }
 
         $reservaId = $this->selectedReservaId;
@@ -376,166 +553,76 @@ class extends Component {
                 ->first();
 
             if (! $r) {
-                session()->flash('error', 'Ez da erreserba hori aurkitu.');
-                return redirect()->route('reservas');
+                $this->notify('error', 'Ez da erreserba hori aurkitu.');
+                return;
             }
 
-            // Solo permitimos cancelar hoy o futuro
-            if ($r->eguna_ordua->lt(now()->startOfDay())) {
-                session()->flash('error', 'Gaurko edo etorkizuneko erreserbak bakarrik ezeztatu ditzakezu.');
-                return redirect()->route('reservas');
+            if (! $this->reservationEndsAt($r->eguna_ordua)->gt(now())) {
+                $this->notify('error', 'Amaitutako erreserbak ezin dira ezeztatu.');
+                return;
             }
 
-            DB::transaction(function () use ($r) {
-                foreach (['eskariak', 'eskaariak'] as $ordersTable) {
-                    if (! Schema::hasTable($ordersTable) || ! Schema::hasColumn($ordersTable, 'erreserbak_id') || ! Schema::hasColumn($ordersTable, 'id')) {
-                        continue;
-                    }
+            CancelReservation::run($r);
 
-                    $orderIds = DB::table($ordersTable)
-                        ->where('erreserbak_id', $r->id)
-                        ->pluck('id')
-                        ->filter(fn ($id) => $id !== null)
-                        ->values()
-                        ->all();
-
-                    if (! $orderIds) {
-                        continue;
-                    }
-
-                    foreach (['eskariak_has_produktuak', 'eskaariak_has_produktuak'] as $pivotTable) {
-                        if (! Schema::hasTable($pivotTable)) {
-                            continue;
-                        }
-
-                        foreach (['eskariak_id', 'eskaariak_id'] as $pivotFk) {
-                            if (! Schema::hasColumn($pivotTable, $pivotFk)) {
-                                continue;
-                            }
-
-                            DB::table($pivotTable)->whereIn($pivotFk, $orderIds)->delete();
-                        }
-                    }
-
-                    DB::table($ordersTable)->whereIn('id', $orderIds)->delete();
-                }
-
-                if (DB::getDriverName() === 'mysql') {
-                    $dbName = DB::connection()->getDatabaseName();
-
-                    $refs = DB::table('information_schema.KEY_COLUMN_USAGE')
-                        ->select(['TABLE_NAME', 'CONSTRAINT_NAME', 'COLUMN_NAME', 'REFERENCED_COLUMN_NAME'])
-                        ->where('REFERENCED_TABLE_SCHEMA', $dbName)
-                        ->where('REFERENCED_TABLE_NAME', 'erreserbak')
-                        ->whereNotNull('REFERENCED_COLUMN_NAME')
-                        ->get();
-
-                    $groups = [];
-                    foreach ($refs as $ref) {
-                        $table = (string) ($ref->TABLE_NAME ?? '');
-                        $constraint = (string) ($ref->CONSTRAINT_NAME ?? '');
-                        $column = (string) ($ref->COLUMN_NAME ?? '');
-                        $refColumn = (string) ($ref->REFERENCED_COLUMN_NAME ?? '');
-
-                        if ($table === '' || $constraint === '' || $column === '' || $refColumn === '' || $table === 'erreserbak') {
-                            continue;
-                        }
-
-                        $key = $table.'|'.$constraint;
-                        $groups[$key]['table'] = $table;
-                        $groups[$key]['pairs'][] = [$column, $refColumn];
-                    }
-
-                    foreach ($groups as $group) {
-                        $table = (string) ($group['table'] ?? '');
-                        $pairs = (array) ($group['pairs'] ?? []);
-
-                        if ($table === '' || ! Schema::hasTable($table) || ! $pairs) {
-                            continue;
-                        }
-
-                        $q = DB::table($table);
-                        $hasWhere = false;
-                        foreach ($pairs as $pair) {
-                            [$column, $refColumn] = $pair;
-                            if (! is_string($column) || ! is_string($refColumn)) {
-                                continue;
-                            }
-                            if (! Schema::hasColumn($table, $column)) {
-                                continue;
-                            }
-
-                            $val = $r->getAttribute($refColumn);
-                            if ($val === null) {
-                                continue;
-                            }
-
-                            $q->where($column, $val);
-                            $hasWhere = true;
-                        }
-
-                        if ($hasWhere) {
-                            $q->delete();
-                        }
-                    }
-                } elseif (Schema::hasTable('eskariak') && Schema::hasColumn('eskariak', 'erreserbak_id')) {
-                    DB::table('eskariak')->where('erreserbak_id', $r->id)->delete();
-                }
-
-                DB::table('erreserbak')
-                    ->where('id', $r->id)
-                    ->delete();
-            }, 3);
-
-            session()->flash('success', 'Erreserba ezeztatuta.');
-            return redirect()->route('reservas');
+            $this->notify('success', 'Erreserba ezeztatuta.');
+            return;
         } catch (\Throwable $e) {
             report($e);
-            session()->flash('error', 'Errore bat gertatu da ezeztatzean.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Errore bat gertatu da ezeztatzean.');
+            return;
         }
     }
 
     public function reservar(int $mahaiId)
     {
         if (! $this->featureEnabled) {
-            session()->flash('error', 'Erreserbak ez daude erabilgarri une honetan.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Erreserbak ez daude erabilgarri une honetan.');
+            return;
         }
 
         $user = Auth::user();
         if (! $user) {
-            $this->redirect(route('login', absolute: false));
+            $this->redirect('/login', navigate: true);
             return;
         }
 
-        $this->syncOrdua();
+        if (! $this->selectedOrduaIsAvailable()) {
+            $this->notify('error', 'Aukeratutako ordua ez dago erabilgarri. Aukeratu berriro.');
+            return;
+        }
+
         $egunaOrdua = $this->getEgunaOrdua();
         if (! $egunaOrdua) {
-            session()->flash('error', 'Aukeratu ordua.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Aukeratu ordua.');
+            return;
+        }
+
+        if (! $this->isAllowedReservationStart($egunaOrdua)) {
+            $this->notify('error', 'Aukeratutako ordua ez dago bazkari edo afari txanden barruan.');
+            return;
         }
 
         if ($egunaOrdua->lt(now())) {
-            session()->flash('error', 'Ezin da iraganeko ordu batean erreserbatu.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Ezin da iraganeko ordu batean erreserbatu.');
+            return;
         }
 
         if ($egunaOrdua->lt(now()->addHour())) {
-            session()->flash('error', 'Erreserbatzeko, gutxienez 1 orduko aurrerapena behar da.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Erreserbatzeko, gutxienez 1 orduko aurrerapena behar da.');
+            return;
         }
 
         $bezeroIzena = trim((string) ($user->name ?? $this->bezeroIzena));
         $telefonoa = trim((string) ($user->telefonoa ?? $this->telefonoa));
         if ($bezeroIzena === '' || $telefonoa === '') {
-            session()->flash('error', 'Ezin da erreserbatu: falta dira zure datuak (izena edo telefonoa).');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Ezin da erreserbatu: falta dira zure datuak (izena edo telefonoa).');
+            return;
         }
 
-        if ($this->pertsonaKopurua < 1) {
-            session()->flash('error', 'Pertsona kopurua ezin da 1 baino txikiagoa izan.');
-            return redirect()->route('reservas');
+        $pertsonaKopurua = $this->sanitizePertsonaKopurua();
+        if ($pertsonaKopurua < self::MIN_PERTSONA_KOPURUA || $pertsonaKopurua > self::MAX_PERTSONA_KOPURUA) {
+            $this->notify('error', 'Pertsona kopurua 1 eta 8 artekoa izan behar da.');
+            return;
         }
 
         $lockKey = 'erreserbak:'.$mahaiId.':'.$egunaOrdua->format('Ymd');
@@ -548,8 +635,8 @@ class extends Component {
                 $lockAcquired = (int) ($row->l ?? 0) === 1;
 
                 if (! $lockAcquired) {
-                    session()->flash('error', 'Barkatu, erreserba hau beste erabiltzaile batek egiten ari da une honetan. Saiatu berriro.');
-                    return redirect()->route('reservas');
+                    $this->notify('error', 'Beste bezero bat erreserba baieztatzen ari da. Saiatu berriro segundo gutxi barru.');
+                    return;
                 }
             }
 
@@ -557,39 +644,38 @@ class extends Component {
             DB::statement('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
             DB::beginTransaction();
 
-            $from = $egunaOrdua->copy()->subHours(2);
-            $to = $egunaOrdua->copy()->addHours(2);
-
-            $yaOcupada = Erreserba::query()
-                ->where('mahaiak_id', $mahaiId)
-                ->where('eguna_ordua', '>', $from)
-                ->where('eguna_ordua', '<', $to)
-                ->exists();
+            $yaOcupada = $this->conflictingReservationsQuery($mahaiId, $egunaOrdua)->exists();
 
             if ($yaOcupada) {
                 DB::rollBack();
-                session()->flash('error', 'Barkatu, mahaia okupatuta dago aukeratutako ordurako.');
-                return redirect()->route('reservas');
+                $this->notify('error', 'Mahaia erreserbatu berri dute aukeratutako ordurako. Aukeratu beste mahai libre bat.');
+                return;
             }
 
             $mahai = Mahai::query()->find($mahaiId);
             if (! $mahai) {
                 DB::rollBack();
-                session()->flash('error', 'Ez da mahaia aurkitu.');
-                return redirect()->route('reservas');
+                $this->notify('error', 'Ez da mahaia aurkitu.');
+                return;
             }
 
-            if (mb_strtolower((string) ($mahai->kokapena ?? '')) === 'terraza' && ! $this->terrazaDisponible) {
+            if (! $this->reservableOnline($mahai)) {
                 DB::rollBack();
-                session()->flash('error', 'Terraza itxita dago eguraldiagatik.');
-                return redirect()->route('reservas');
+                $this->notify('error', 'Mahaia ez dago web bidez erreserbatzeko erabilgarri.');
+                return;
+            }
+
+            if (mb_strtolower((string) ($mahai->kokapena ?? '')) === 'terraza' && ! $this->terrazaIrekita($egunaOrdua)) {
+                DB::rollBack();
+                $this->notify('error', 'Terraza itxita dago eguraldiagatik.');
+                return;
             }
 
             $cap = (int) ($mahai->pertsona_kopurua ?? 0);
-            if ($cap > 0 && $cap < $this->pertsonaKopurua) {
+            if ($cap > 0 && $cap < $pertsonaKopurua) {
                 DB::rollBack();
-                session()->flash('error', 'Mahaia txikiegia da aukeratutako pertsona kopururako.');
-                return redirect()->route('reservas');
+                $this->notify('error', 'Mahaia txikiegia da aukeratutako pertsona kopururako.');
+                return;
             }
 
             $langileId = (int) (DB::table('langileak')->where('ezabatua', 0)->min('id') ?? DB::table('langileak')->min('id') ?? 1);
@@ -597,7 +683,7 @@ class extends Component {
             $erreserba = Erreserba::create([
                 'bezero_izena' => $bezeroIzena,
                 'telefonoa' => $telefonoa,
-                'pertsona_kopurua' => (int) $this->pertsonaKopurua,
+                'pertsona_kopurua' => $pertsonaKopurua,
                 'eguna_ordua' => $egunaOrdua,
                 'prezio_totala' => 0,
                 'ordainduta' => false,
@@ -614,7 +700,7 @@ class extends Component {
 
             $emailSent = false;
             try {
-                $reservasUrl = rtrim((string) config('app.url'), '/').route('reservas', absolute: false);
+                $reservasUrl = rtrim((string) config('app.url'), '/').route('reservas.historial', absolute: false);
 
                 Mail::to($user->email)->send(new ReservationConfirmedEmail($erreserba, $reservasUrl));
                 $emailSent = true;
@@ -622,15 +708,15 @@ class extends Component {
                 report($mailError);
             }
 
-            session()->flash('success', $emailSent ? 'Erreserba baieztatuta! Mezu bat bidali da.' : 'Erreserba baieztatuta!');
-            return redirect()->route('reservas');
+            $this->notify('success', $emailSent ? 'Erreserba baieztatuta! Mezu bat bidali da.' : 'Erreserba baieztatuta!');
+            return;
         } catch (\Throwable $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
             report($e);
-            session()->flash('error', 'Errore bat gertatu da erreserbatzean.');
-            return redirect()->route('reservas');
+            $this->notify('error', 'Errore bat gertatu da erreserbatzean.');
+            return;
         } finally {
             if (DB::getDriverName() === 'mysql' && $lockAcquired) {
                 DB::select('SELECT RELEASE_LOCK(?)', [$lockKey]);
@@ -646,12 +732,38 @@ class extends Component {
         <section class="mx-auto max-w-6xl px-4 py-12 sm:py-16">
             <h1 class="text-3xl sm:text-4xl font-extrabold">Mahaia erreserbatu</h1>
             <p class="mt-2 text-zinc-600">
-                Aukeratu eguna, ordua eta pertsonak; gero egin klik mahai libre batean.
+                Aukeratu eguna, ordua eta pertsonak; libre dagoen mahaia hautatu, eta azken leihoan baieztatu.
             </p>
 
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            @php
+                $alertType = $noticeType ?: (session('success') ? 'success' : (session('error') ? 'error' : ''));
+                $alertMessage = $noticeMessage ?: (session('success') ?: session('error'));
+            @endphp
+
+            @if ($alertMessage)
+                <div class="mt-6 rounded-xl border px-4 py-3 text-sm font-medium {{ $alertType === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700' }}" role="status" aria-live="polite">
+                    {{ $alertMessage }}
+                </div>
+            @endif
+
+            <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-xl border border-[#6366F1]/30 bg-[#6366F1]/10 px-4 py-3">
+                    <div class="text-xs font-bold uppercase text-[#4F46E5]">1. pausoa</div>
+                    <div class="mt-1 text-sm font-semibold text-slate-900">Data eta pertsonak</div>
+                </div>
+                <div class="rounded-xl border border-zinc-200 bg-white px-4 py-3">
+                    <div class="text-xs font-bold uppercase text-zinc-500">2. pausoa</div>
+                    <div class="mt-1 text-sm font-semibold text-slate-900">Mahaia aukeratu</div>
+                </div>
+                <div class="rounded-xl border border-zinc-200 bg-white px-4 py-3">
+                    <div class="text-xs font-bold uppercase text-zinc-500">3. pausoa</div>
+                    <div class="mt-1 text-sm font-semibold text-slate-900">Baieztatu</div>
+                </div>
+            </div>
+
+        <div class="mt-8 grid grid-cols-1 nb-desktop-reservas-grid gap-6">
             <div class="rounded-2xl border border-zinc-200 p-6">
-                <h2 class="font-semibold">Aukeratu data eta ordua</h2>
+                <h2 class="font-semibold">1. Aukeratu data, ordua eta pertsonak</h2>
 
                 <div class="mt-4 space-y-4">
                     <div>
@@ -670,18 +782,19 @@ class extends Component {
 
                     <div>
                         <label class="block text-sm font-medium">Ordua</label>
-                        <p class="mt-1 text-xs text-zinc-500">Gutxienez 1 orduko aurrerapenarekin.</p>
+                        <p class="mt-1 text-xs text-zinc-500">Bazkarian eta afarian erreserbatu daiteke, gutxienez 1 orduko aurrerapenarekin.</p>
                         @if (count($this->orduaAukerak) === 0)
                             <div class="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                                Ez dago ordurik erabilgarri aukeratutako egunerako.
+                                Ez dago bazkari edo afari ordurik erabilgarri aukeratutako egunerako.
                             </div>
                         @else
                             <select
+                                wire:key="ordua-select-{{ $data }}"
                                 wire:model.live="ordua"
                                 class="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
                             >
                                 @foreach ($this->orduaAukerak as $o)
-                                    <option value="{{ $o }}">{{ $o }}</option>
+                                    <option value="{{ $o }}" @selected($ordua === $o)>{{ $o }}</option>
                                 @endforeach
                             </select>
                         @endif
@@ -689,27 +802,41 @@ class extends Component {
 
                     <div>
                         <label class="block text-sm font-medium">Pertsona kopurua</label>
-                        <input
-                            type="number"
-                            min="1"
+                        <select
                             wire:model.live="pertsonaKopurua"
                             class="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        />
+                        >
+                            @for ($i = 1; $i <= 8; $i++)
+                                <option value="{{ $i }}">{{ $i }}</option>
+                            @endfor
+                        </select>
+                    </div>
+
+                    <div class="border-l-4 border-[#6366F1] bg-[#6366F1]/5 px-4 py-3 text-sm">
+                        <div class="font-semibold text-slate-900">Zure aukeraketa</div>
+                        <div class="mt-1 text-zinc-600">
+                            {{ \Carbon\Carbon::parse($data ?: now()->toDateString())->format('d/m/Y') }}
+                            @if ($this->txanda)
+                                · {{ $this->txanda }}
+                            @endif
+                            · {{ $ordua ?: '—' }}{{ $this->amaieraOrdua ? ' - '.$this->amaieraOrdua : '' }}
+                            · {{ (int) $pertsonaKopurua }} pertsona
+                        </div>
                     </div>
 
                     <div class="rounded-xl bg-zinc-50 p-4 border border-zinc-200">
-                        <div class="text-sm font-medium">Legenda</div>
+                        <div class="text-sm font-medium">Koloreen legenda</div>
                         <div class="mt-3 flex items-center gap-4 text-sm">
                             <div class="flex items-center gap-2">
-                                <span class="inline-block h-3.5 w-3.5 rounded bg-[#4E8EF7]"></span>
+                                <span class="inline-block h-3.5 w-3.5 rounded" style="background-color: #2EAD6B;"></span>
                                 Libre
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="inline-block h-3.5 w-3.5 rounded bg-red-500"></span>
+                                <span class="inline-block h-3.5 w-3.5 rounded" style="background-color: #6366F1;"></span>
                                 Zure erreserba
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="inline-block h-3.5 w-3.5 rounded" style="background-color: #374151;"></span>
+                                <span class="inline-block h-3.5 w-3.5 rounded" style="background-color: #D94B5A;"></span>
                                 Okupatuta
                             </div>
                         </div>
@@ -717,24 +844,40 @@ class extends Component {
                 </div>
             </div>
 
-            <div class="lg:col-span-2 rounded-2xl border border-zinc-200 p-6">
-                <h2 class="font-semibold">Mahai erabilgarriak</h2>
+            <div class="nb-desktop-span-2 rounded-2xl border border-zinc-200 p-6">
+                <h2 class="font-semibold">2. Aukeratu mahaia</h2>
                 <p class="mt-2 text-sm text-zinc-500">
                     Data: <strong>{{ \Carbon\Carbon::parse($data ?: now()->toDateString())->format('d/m/Y') }}</strong> ·
-                    Ordua: <strong>{{ $ordua ?: '—' }}</strong> ·
+                    Txanda: <strong>{{ $this->txanda ?: '—' }}</strong> ·
+                    Ordua: <strong>{{ $ordua ?: '—' }}{{ $this->amaieraOrdua ? ' - '.$this->amaieraOrdua : '' }}</strong> ·
                     Pertsonak: <strong>{{ (int) $pertsonaKopurua }}</strong>
                 </p>
 
                 @php
-                    $requiredPeople = (int) $pertsonaKopurua;
+                    $requiredPeople = max(1, min(8, (int) $pertsonaKopurua));
                     $myPhone = (string) (auth()->user()?->telefonoa ?? '');
                     $terrazaOn = $this->terrazaDisponible;
+                    $allMahaiak = $this->mahaiak;
+                    $ocupadas = $this->ocupadas;
 
-                    $renderBtn = function($mahai) use ($requiredPeople, $myPhone, $terrazaOn) {
+                    $isAvailable = function($mahai) use ($requiredPeople, $terrazaOn, $ocupadas) {
                         if (! $mahai) return;
 
                         $kokapena = mb_strtolower((string) ($mahai->kokapena ?? ''));
-                        $ocupadaTelefonoa = $this->ocupadas[$mahai->id] ?? null;
+                        $cap = (int) ($mahai->pertsona_kopurua ?? 0);
+                        $txikiegia = $cap > 0 && $cap < $requiredPeople;
+                        $terrazaItxita = $kokapena === 'terraza' && ! $terrazaOn;
+
+                        return ! array_key_exists($mahai->id, $ocupadas) && ! $txikiegia && ! $terrazaItxita;
+                    };
+
+                    $availableCount = $allMahaiak->filter($isAvailable)->count();
+
+                    $renderBtn = function($mahai) use ($requiredPeople, $myPhone, $terrazaOn, $ocupadas) {
+                        if (! $mahai) return;
+
+                        $kokapena = mb_strtolower((string) ($mahai->kokapena ?? ''));
+                        $ocupadaTelefonoa = $ocupadas[$mahai->id] ?? null;
                         $ocupada = $ocupadaTelefonoa !== null;
                         $esMia = $ocupada && $ocupadaTelefonoa === ($myPhone !== '' ? $myPhone : (auth()->user()?->telefonoa ?? null));
 
@@ -742,11 +885,14 @@ class extends Component {
                         $txikiegia = $cap > 0 && $cap < $requiredPeople;
                         $terrazaItxita = $kokapena === 'terraza' && ! $terrazaOn;
 
-                        $bgColor = '#4E8EF7';
+                        $bgColor = '#2EAD6B';
+                        $status = 'Libre';
                         if ($ocupada) {
-                            $bgColor = $esMia ? '#EF4444' : '#4b5563';
+                            $bgColor = $esMia ? '#6366F1' : '#D94B5A';
+                            $status = $esMia ? 'Zure erreserba' : 'Okupatuta';
                         } elseif ($txikiegia || $terrazaItxita) {
-                            $bgColor = '#9ca3af';
+                            $bgColor = '#94A3B8';
+                            $status = $terrazaItxita ? 'Itxita' : 'Txikiegia';
                         }
 
                         $disabled = ($ocupada || $txikiegia || $terrazaItxita) ? 'disabled' : '';
@@ -762,22 +908,34 @@ class extends Component {
                             <div class="text-xs opacity-90">
                                 ' . ($cap ? ('Kapazitatea: ' . $cap) : '') . '
                             </div>
+                            <div class="mt-3 text-xs font-semibold uppercase tracking-wide opacity-95">' . e($status) . '</div>
                         </button>';
                     };
 
-                    $interior = $this->mahaiak->filter(fn ($m) => mb_strtolower((string) ($m->kokapena ?? '')) === 'interior');
-                    $terraza = $this->mahaiak->filter(fn ($m) => mb_strtolower((string) ($m->kokapena ?? '')) === 'terraza');
-                    $ekitaldi = $this->mahaiak->filter(fn ($m) => mb_strtolower((string) ($m->kokapena ?? '')) === 'ekitaldi');
+                    $interior = $allMahaiak->filter(fn ($m) => mb_strtolower((string) ($m->kokapena ?? '')) === 'interior');
+                    $terraza = $allMahaiak->filter(fn ($m) => mb_strtolower((string) ($m->kokapena ?? '')) === 'terraza');
                 @endphp
+
+                @if ($availableCount === 0)
+                    <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Ez dago mahairik libre aukeratutako ordu eta pertsona kopururako. Probatu beste ordu batekin edo pertsona kopuru txikiagoarekin.
+                    </div>
+                @endif
 
                 <div class="mt-6 space-y-8">
                     <div>
                         <div class="text-sm font-semibold text-zinc-900">Interior</div>
-                        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            @foreach ($interior as $m)
-                                {!! $renderBtn($m) !!}
-                            @endforeach
-                        </div>
+                        @if ($interior->isEmpty())
+                            <div class="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+                                Ez dago barruko mahairik erabilgarri web bidez.
+                            </div>
+                        @else
+                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 nb-desktop-table-grid gap-4">
+                                @foreach ($interior as $m)
+                                    {!! $renderBtn($m) !!}
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div>
@@ -791,7 +949,7 @@ class extends Component {
                         </div>
 
                         @if ($this->terrazaDisponible)
-                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 nb-desktop-table-grid gap-4">
                                 @foreach ($terraza as $m)
                                     {!! $renderBtn($m) !!}
                                 @endforeach
@@ -803,29 +961,27 @@ class extends Component {
                         @endif
                     </div>
 
-                    <div>
-                        <div class="text-sm font-semibold text-zinc-900">Ekitaldi</div>
-                        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            @foreach ($ekitaldi as $m)
-                                {!! $renderBtn($m) !!}
-                            @endforeach
-                        </div>
-                    </div>
                 </div>
 
                 <div class="mt-8 rounded-xl bg-zinc-50 p-4 border border-zinc-200">
-                    <div class="text-sm font-medium">Zure erreserbak</div>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-sm font-medium">Zure hurrengo erreserbak</div>
+                        <a href="{{ route('reservas.historial', absolute: false) }}" class="text-sm font-semibold text-[#6366F1] hover:underline" wire:navigate>
+                            Historiala ikusi
+                        </a>
+                    </div>
                     <div class="mt-3 space-y-2 text-sm">
                         @forelse ($this->misReservas as $r)
                             @php
-                                $esFutura = $r->eguna_ordua->gte(now()->startOfDay());
+                                $amaiera = $this->reservationEndsAt($r->eguna_ordua);
+                                $esFutura = $amaiera->gt(now());
                                 $puedeCancelar = $esFutura;
                             @endphp
 
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2">
                                 <div>
                                     <div>
-                                        <span class="font-semibold">{{ $r->eguna_ordua->format('d/m/Y H:i') }}</span>
+                                        <span class="font-semibold">{{ $r->eguna_ordua->format('d/m/Y H:i') }} - {{ $amaiera->format('H:i') }}</span>
                                         · Mahaia {{ $r->mahai?->zenbakia ?? $r->mahaiak_id }}
                                         · {{ (int) $r->pertsona_kopurua }} pertsona
                                     </div>
@@ -843,7 +999,7 @@ class extends Component {
                                 @endif
                             </div>
                         @empty
-                            <div class="text-zinc-500">Oraindik ez duzu erreserbarik.</div>
+                            <div class="text-zinc-500">Ez duzu hurrengo erreserbarik.</div>
                         @endforelse
                     </div>
                 </div>
@@ -856,11 +1012,12 @@ class extends Component {
         <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
             <div class="absolute inset-0 bg-black/50" wire:click="cerrarConfirm"></div>
             <div class="relative w-full max-w-lg rounded-2xl bg-white border border-zinc-200 p-6 shadow-xl">
-                <h3 class="text-lg font-bold">Erreserba baieztatu</h3>
+                <h3 class="text-lg font-bold">3. Erreserba baieztatu</h3>
                 <p class="mt-2 text-sm text-zinc-600">
                     Erreserbatuko duzu: <strong>Mahaia {{ $this->selectedMahai?->zenbakia ?? ($selectedMahaiId ?? '') }}</strong>
                     egunerako: <strong>{{ \Carbon\Carbon::parse($data ?: now()->toDateString())->format('d/m/Y') }}</strong> ·
-                    ordua: <strong>{{ $ordua ?: '—' }}</strong> ·
+                    txanda: <strong>{{ $this->txanda ?: '—' }}</strong> ·
+                    ordua: <strong>{{ $ordua ?: '—' }}{{ $this->amaieraOrdua ? ' - '.$this->amaieraOrdua : '' }}</strong> ·
                     pertsonak: <strong>{{ (int) $pertsonaKopurua }}</strong>
                 </p>
 
@@ -885,7 +1042,7 @@ class extends Component {
             <div class="relative w-full max-w-lg rounded-2xl bg-white border border-zinc-200 p-6 shadow-xl">
                 <h3 class="text-lg font-bold text-red-700">Erreserba ezeztatu</h3>
                 <p class="mt-2 text-sm text-zinc-600">
-                    Ziur zaude erreserba hau ezeztatu nahi duzula? Ekintza hau ezin da desegin.
+                    Ziur zaude erreserba hau ezeztatu nahi duzula? Mahaia berehala libre agertuko da beste bezeroentzat.
                 </p>
 
                 <div class="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">

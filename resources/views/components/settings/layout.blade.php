@@ -7,11 +7,12 @@
     ];
 @endphp
 
-<div x-data="{ settingsMobileMenuOpen: false }" class="flex items-start min-h-screen">
+<div x-data="{ settingsMobileMenuOpen: false }" x-on:keydown.escape.window="settingsMobileMenuOpen = false" class="flex min-h-screen items-start bg-[#F9FAFB]">
     <!-- Mobile Floating Button -->
     <button 
         type="button" 
-        class="fixed top-4 left-4 z-50 p-3 bg-[#6366F1] text-white rounded-full shadow-lg hover:bg-[#4F46E5] transition-colors"
+        class="fixed top-4 left-4 z-50 p-3 bg-[#6366F1] text-white rounded-full shadow-lg hover:bg-[#4F46E5] transition-colors xl:hidden"
+        aria-label="Menua ireki"
         @click="settingsMobileMenuOpen = !settingsMobileMenuOpen"
         x-show="!settingsMobileMenuOpen"
         x-transition:enter="transition ease-out duration-300"
@@ -26,7 +27,7 @@
     <!-- Mobile Menu Overlay -->
     <div 
         x-show="settingsMobileMenuOpen" 
-        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm xl:hidden"
         x-transition:enter="transition-opacity ease-linear duration-300"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
@@ -40,7 +41,7 @@
     <!-- Mobile Menu Sidebar -->
     <div 
         x-show="settingsMobileMenuOpen" 
-        class="fixed inset-y-0 left-0 z-50 w-[85%] sm:w-[20%] min-w-[250px] bg-[#6366F1] shadow-2xl transform transition-transform duration-300 ease-in-out overflow-y-auto"
+        class="fixed inset-y-0 left-0 z-50 flex w-[min(22rem,86vw)] min-w-[250px] flex-col bg-[#6366F1] shadow-2xl transform transition-transform duration-300 ease-in-out xl:hidden"
         x-transition:enter="transition ease-in-out duration-300 transform"
         x-transition:enter-start="-translate-x-full"
         x-transition:enter-end="translate-x-0"
@@ -58,14 +59,14 @@
             </button>
         </div>
 
-        <div class="p-4 space-y-6">
+        <div class="flex-1 overflow-y-auto p-4 space-y-6 pb-6">
             <!-- Global Navigation -->
             <div>
                 <div class="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Nabigazioa</div>
                 <div class="space-y-1">
                     @foreach ($nav as $item)
                         <a 
-                            href="{{ route($item['route']) }}" 
+                            href="{{ route($item['route'], absolute: false) }}" 
                             class="flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition"
                             wire:navigate
                             @click="settingsMobileMenuOpen = false"
@@ -122,7 +123,7 @@
         </div>
 
         <!-- User Profile Footer -->
-        <div class="mt-auto p-4 border-t border-white/10 absolute bottom-0 w-full">
+        <div class="border-t border-white/10 p-4">
             <div class="flex items-center gap-3 px-2">
                  <div class="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10 items-center justify-center text-white font-bold">
                      {{ auth()->user()->initials() }}
@@ -135,7 +136,7 @@
             
             <div class="h-px bg-white/10 my-3"></div>
             
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
+            <form method="POST" action="{{ route('logout', absolute: false) }}" class="w-full">
                 @csrf
                 <button type="submit" class="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm font-medium text-white hover:bg-white/10 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
@@ -155,16 +156,16 @@
         </div>
         
         <flux:navlist>
-            <flux:navlist.item :href="route('profile.edit')" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Profila') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('user-password.edit')" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Pasahitza') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('profile.edit', absolute: false)" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Profila') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('user-password.edit', absolute: false)" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Pasahitza') }}</flux:navlist.item>
             @if (Laravel\Fortify\Features::canManageTwoFactorAuthentication())
-                <flux:navlist.item :href="route('two-factor.show')" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Bi urratseko autentifikazioa') }}</flux:navlist.item>
+                <flux:navlist.item :href="route('two-factor.show', absolute: false)" wire:navigate class="text-white hover:text-white/80" style="--color-accent-content: #ffffff; --color-zinc-800: rgba(255,255,255,0.1);">{{ __('Bi urratseko autentifikazioa') }}</flux:navlist.item>
             @endif
         </flux:navlist>
     </div> --}}
 
     <!-- Content -->
-    <div class="flex-1 self-stretch p-8 pt-16 pl-24 md:pl-32 max-w-6xl mx-auto">
+    <div class="flex-1 self-stretch w-full max-w-5xl mx-auto px-4 pb-10 pt-20 sm:px-6 lg:px-8 xl:pt-10">
         @if(isset($heading) || isset($subheading))
             <div class="mb-8">
                 <flux:heading size="xl" class="mb-2 text-3xl font-bold text-gray-900">{{ $heading ?? '' }}</flux:heading>

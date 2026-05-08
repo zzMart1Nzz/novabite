@@ -94,13 +94,16 @@
             <div class="info-box">
                 <ul>
                     <li><strong>Data:</strong> {{ $erreserba->eguna_ordua->format('d/m/Y') }}</li>
+                    <li><strong>Ordua:</strong> {{ $erreserba->eguna_ordua->format('H:i') }} - {{ $erreserba->eguna_ordua->copy()->addHours(2)->format('H:i') }}</li>
                     <li><strong>Zerbitzua:</strong> {{ $erreserba->eguna_ordua->hour < 15 ? 'Bazkaria' : 'Afaria' }}</li>
                     <li><strong>Mahaia:</strong> Mahaia {{ $erreserba->mahai->zenbakia ?? $erreserba->mahai->id }}</li>
+                    <li><strong>Pertsonak:</strong> {{ (int) $erreserba->pertsona_kopurua }}</li>
                     <li><strong>Helbidea:</strong> Argi Kalea 12, 20240 Ordizia, Gipuzkoa</li>
                 </ul>
             </div>
 
-            <p>Erreserba aldatu edo ezeztatu behar baduzu, jarri gurekin harremanetan mezu honi erantzunez edo gure webgunearen bidez.</p>
+            <p>Gomendatzen dizugu ordua baino minutu batzuk lehenago iristea. Erreserba ezeztatu behar baduzu, egin dezakezu webguneko zure erreserben ataletik.</p>
+            <p>Saioa hasi gabe bazaude, botoiak saioa hasteko orrira eramango zaitu eta ondoren zure erreserbetara itzuliko zaitu.</p>
             
             <p>Zure zain gaituzu!</p>
             

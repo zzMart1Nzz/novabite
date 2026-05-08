@@ -3,6 +3,7 @@
 use App\Livewire\Actions\Logout;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
+use Masmerise\Toaster\Toaster;
 
 new class extends Component {
     public string $password = '';
@@ -24,10 +25,10 @@ new class extends Component {
     }
 }; ?>
 
-<section class="mt-10 space-y-6">
+<section class="space-y-6">
     <div class="relative mb-5">
-        <flux:heading>{{ __('Kontua ezabatu') }}</flux:heading>
-        <flux:subheading>{{ __('Ezabatu zure kontua eta baliabide guztiak') }}</flux:subheading>
+        <flux:heading size="xl" class="mb-2 text-2xl font-bold">{{ __('Kontua ezabatu') }}</flux:heading>
+        <flux:subheading>{{ __('Ezabatu zure bezero-kontua eta bertako datuak.') }}</flux:subheading>
     </div>
 
     <flux:modal.trigger name="confirm-user-deletion">

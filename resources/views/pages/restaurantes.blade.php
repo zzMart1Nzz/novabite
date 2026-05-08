@@ -34,11 +34,11 @@
             </p>
             <div class="mt-8">
                 @auth
-                    <a href="{{ route('reservas') }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-10 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#4F46E5] transition transform hover:-translate-y-1" wire:navigate>
+                    <a href="{{ route('reservas', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-10 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#4F46E5] transition transform hover:-translate-y-1" wire:navigate>
                         Mahaia erreserbatu
                     </a>
                 @else
-                    <a href="{{ route('login') }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-10 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#4F46E5] transition transform hover:-translate-y-1" wire:navigate>
+                    <a href="{{ route('login', absolute: false) }}" class="inline-flex items-center justify-center rounded-xl bg-[#6366F1] px-10 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#4F46E5] transition transform hover:-translate-y-1" wire:navigate>
                         Saioa hasi erreserbatzeko
                     </a>
                 @endauth

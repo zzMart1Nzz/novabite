@@ -5,7 +5,7 @@
         <!-- Session Status -->
         <x-auth-session-status class="text-center" :status="session('status')" />
 
-        <form method="POST" action="{{ route('password.email') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('password.email', absolute: false) }}" class="flex flex-col gap-6">
             @csrf
 
             <!-- Email Address -->
@@ -25,7 +25,7 @@
 
         <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-white">
             <span>{{ __('Edo, itzuli') }}</span>
-            <a href="{{ route('login') }}" class="font-bold hover:underline" wire:navigate>{{ __('saioa hasi') }}</a>
+            <a href="{{ route('login', absolute: false) }}" class="font-bold hover:underline" wire:navigate>{{ __('saioa hasi') }}</a>
         </div>
     </div>
 </x-layouts.auth>
